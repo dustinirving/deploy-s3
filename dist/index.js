@@ -2753,55 +2753,30 @@ var __importStar = (this && this.__importStar) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.run = void 0;
 const core = __importStar(__nccwpck_require__(186));
-const wait_1 = __nccwpck_require__(259);
-/**
- * The main function for the action.
- * @returns {Promise<void>} Resolves when the action is complete.
- */
+const child_process_1 = __nccwpck_require__(81);
 async function run() {
-    try {
-        const ms = core.getInput('milliseconds');
-        // Debug logs are only output if the `ACTIONS_STEP_DEBUG` secret is true
-        core.debug(`Waiting ${ms} milliseconds ...`);
-        // Log the current timestamp, wait, then log the new timestamp
-        core.debug(new Date().toTimeString());
-        await (0, wait_1.wait)(parseInt(ms, 10));
-        core.debug(new Date().toTimeString());
-        // Set outputs for other workflow steps to use
-        core.setOutput('time', new Date().toTimeString());
-    }
-    catch (error) {
-        // Fail the workflow run if an error occurs
-        if (error instanceof Error)
-            core.setFailed(error.message);
-    }
+    const s3Bucket = process.env.S3_BUCKET;
+    const cloudFrontDistributionId = process.env.CLOUDFRONT_DISTRIBUTION_ID;
+    const region = process.env.AWS_REGION;
+    const buildFolder = core.getInput('buildFolder');
+    const buildPath = `./${buildFolder}`;
+    await uploadToS3({ region, buildPath, s3Bucket });
+    await invalidateCloudFront({ region, cloudFrontDistributionId });
 }
 exports.run = run;
-
-
-/***/ }),
-
-/***/ 259:
-/***/ ((__unused_webpack_module, exports) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.wait = void 0;
-/**
- * Wait for a number of milliseconds.
- * @param milliseconds The number of milliseconds to wait.
- * @returns {Promise<string>} Resolves with 'done!' after the wait is over.
- */
-async function wait(milliseconds) {
-    return new Promise(resolve => {
-        if (isNaN(milliseconds)) {
-            throw new Error('milliseconds not a number');
-        }
-        setTimeout(() => resolve('done!'), milliseconds);
+function runCommand(cmd, options = {}) {
+    return (0, child_process_1.execSync)(cmd, {
+        ...options,
+        shell: '/bin/bash',
+        encoding: 'utf-8'
     });
 }
-exports.wait = wait;
+async function uploadToS3({ region, s3Bucket, buildPath }) {
+    runCommand(`aws --region ${region} s3 cp "${buildPath}" "s3://${s3Bucket}" --recursive`);
+}
+async function invalidateCloudFront({ region, cloudFrontDistributionId }) {
+    runCommand(`aws --region ${region} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths /*`);
+}
 
 
 /***/ }),
@@ -2811,6 +2786,14 @@ exports.wait = wait;
 
 "use strict";
 module.exports = require("assert");
+
+/***/ }),
+
+/***/ 81:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("child_process");
 
 /***/ }),
 
