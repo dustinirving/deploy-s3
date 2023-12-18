@@ -42,6 +42,6 @@ async function invalidateCloudFront({
   cloudFrontDistributionId: string | undefined
 }) {
   runCommand(
-    `aws --region ${region} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths /*`
+    `aws --region ${region} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/*"`
   )
 }
