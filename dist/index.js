@@ -2775,7 +2775,7 @@ async function uploadToS3({ region, s3Bucket, buildPath }) {
     runCommand(`aws --region ${region} s3 cp "${buildPath}" "s3://${s3Bucket}" --recursive`);
 }
 async function invalidateCloudFront({ region, cloudFrontDistributionId }) {
-    runCommand(`aws --region ${region} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths /*`);
+    runCommand(`aws --region ${region} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths "/*"`);
 }
 
 
