@@ -1,26 +1,47 @@
 import * as core from '@actions/core'
-import { wait } from './wait'
+import { execSync } from 'child_process'
 
-/**
- * The main function for the action.
- * @returns {Promise<void>} Resolves when the action is complete.
- */
-export async function run(): Promise<void> {
-  try {
-    const ms: string = core.getInput('milliseconds')
+export async function run() {
+  const s3Bucket = process.env.S3_BUCKET
+  const cloudFrontDistributionId = process.env.CLOUDFRONT_DISTRIBUTION_ID
+  const region = process.env.AWS_REGION
+  const buildFolder = core.getInput('buildFolder')
+  const buildPath = `./${buildFolder}`
 
-    // Debug logs are only output if the `ACTIONS_STEP_DEBUG` secret is true
-    core.debug(`Waiting ${ms} milliseconds ...`)
+  await uploadToS3({ region, buildPath, s3Bucket })
+  await invalidateCloudFront({ region, cloudFrontDistributionId })
+}
 
-    // Log the current timestamp, wait, then log the new timestamp
-    core.debug(new Date().toTimeString())
-    await wait(parseInt(ms, 10))
-    core.debug(new Date().toTimeString())
+function runCommand(cmd: string, options = {}) {
+  return execSync(cmd, {
+    ...options,
+    shell: '/bin/bash',
+    encoding: 'utf-8'
+  })
+}
 
-    // Set outputs for other workflow steps to use
-    core.setOutput('time', new Date().toTimeString())
-  } catch (error) {
-    // Fail the workflow run if an error occurs
-    if (error instanceof Error) core.setFailed(error.message)
-  }
+async function uploadToS3({
+  region,
+  s3Bucket,
+  buildPath
+}: {
+  region: string | undefined
+  s3Bucket: string | undefined
+  buildPath: string
+}) {
+  runCommand(
+    `aws --region ${region} s3 cp "${buildPath}" "s3://${s3Bucket}" --recursive`
+  )
+}
+
+async function invalidateCloudFront({
+  region,
+  cloudFrontDistributionId
+}: {
+  region: string | undefined
+  cloudFrontDistributionId: string | undefined
+}) {
+  runCommand(
+    `aws --region ${region} cloudfront create-invalidation --distribution-id ${cloudFrontDistributionId} --paths /*`
+  )
 }
